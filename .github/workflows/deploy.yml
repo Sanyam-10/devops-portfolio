@@ -1,37 +1,49 @@
-name: Deploy to EC2
+name: Deploy to EC2 (Docker)
 
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: SSH & Deploy
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy on EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
           script: |
-            set -e
-            echo "Connected to server"
+            echo "===== Connected to EC2 ====="
 
-            docker ps
+            cd ~
 
-            docker pull ssanyam2004/portfolio-backend:latest
+            echo "===== Stop old containers ====="
+            docker stop frontend backend || true
+            docker rm frontend backend || true
+
+            echo "===== Pull latest images ====="
             docker pull ssanyam2004/portfolio-frontend:latest
+            docker pull ssanyam2004/portfolio-backend:latest
 
-            docker stop backend || true
-            docker stop frontend || true
+            echo "===== Run backend (PORT 4000) ====="
+            docker run -d \
+              --name backend \
+              -p 4000:4000 \
+              ssanyam2004/portfolio-backend:latest
 
-            docker rm backend || true
-            docker rm frontend || true
+            echo "===== Run frontend (PORT 80) ====="
+            docker run -d \
+              --name frontend \
+              -p 80:80 \
+              ssanyam2004/portfolio-frontend:latest
 
-            docker run -d --name backend -p 4000:4000 ssanyam2004/portfolio-backend:latest
-            docker run -d --name frontend -p 80:80 ssanyam2004/portfolio-frontend:latest
+            echo "===== Deployment Finished ====="
 
-            docker ps
