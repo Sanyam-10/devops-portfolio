@@ -1,40 +1,37 @@
-name: Deploy Portfolio
+name: Deploy to EC2
 
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy on Server via SSH
+      - name: SSH & Deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd ~/devops-portfolio || exit 1
+            set -e
+            echo "Connected to server"
 
-            git pull origin master
+            docker ps
 
-            docker stop frontend-container || true
-            docker rm frontend-container || true
-            docker stop backend-container || true
-            docker rm backend-container || true
+            docker pull ssanyam2004/portfolio-backend:latest
+            docker pull ssanyam2004/portfolio-frontend:latest
 
-            docker build -t portfolio-backend ./backend
-            docker build -t portfolio-frontend ./frontend
+            docker stop backend || true
+            docker stop frontend || true
 
-            docker run -d \
-              --name backend-container \
-              -p 4000:4000 \
-              portfolio-backend
+            docker rm backend || true
+            docker rm frontend || true
 
-            docker run -d \
-              --name frontend-container \
-              -p 80:80 \
-              portfolio-frontend
+            docker run -d --name backend -p 4000:4000 ssanyam2004/portfolio-backend:latest
+            docker run -d --name frontend -p 80:80 ssanyam2004/portfolio-frontend:latest
+
+            docker ps
